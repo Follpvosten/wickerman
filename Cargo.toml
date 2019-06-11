@@ -1,14 +1,14 @@
 [package]
 name = "wickerman"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["Zach Mitchell <zmitchell@fastmail.com>"]
 license = "MIT/Apache-2.0"
+edition = "2018"
 
 [dependencies]
-proc-macro2 = {version = "^0.2.2", features = ["nightly"]}
-quote = "^0.4.2"
-rand = "^0.4.2"
-syn = {version = "^0.12.12", features = ["full"]}
+quote = "0.6"
+rand = "0.6"
+syn = {version = "0.15", features = ["full"]}
 
 [lib]
 proc-macro = true

@@ -1,15 +1,12 @@
-#![feature(proc_macro)]
+#![feature(proc_macro_diagnostic)]
 
 extern crate proc_macro;
-#[macro_use]
-extern crate quote;
-extern crate rand;
-extern crate syn;
 
 use proc_macro::TokenStream;
-use rand::Rng;
-use syn::{Fields, Item};
+use quote::quote;
+use rand::seq::IteratorRandom;
 use syn::spanned::Spanned;
+use syn::{Fields, Item};
 
 #[proc_macro_attribute]
 pub fn wickerman(_metadata: TokenStream, input: TokenStream) -> TokenStream {
@@ -27,23 +24,21 @@ pub fn wickerman(_metadata: TokenStream, input: TokenStream) -> TokenStream {
             if has_bees(struct_item) {
                 light_it_up(struct_item);
             }
-        },
+        }
 
         // If the attribute was applied to any other kind of item, we want to generate a
         // compiler error.
         _ => {
             // This is how you generate a compiler error. You can also generate a "note",
             // or a "warning".
-            item.span().unstable()
-                .error("This is not a struct")
-                .emit();
-        },
+            item.span().unstable().error("This is not a struct").emit();
+        }
     }
 
     // Use `quote` to convert the syntax tree back into tokens so we can return them. Note
     // that the tokens we're returning at this point are still just the input, we've simply
     // converted it between a few different forms.
-    let output = quote!{ #item };
+    let output = quote! { #item };
     output.into()
 }
 
@@ -54,12 +49,14 @@ fn has_bees(struct_: &syn::ItemStruct) -> bool {
         // those fields and ignore the rest.
         Fields::Named(ref fields) => {
             // Unwrap the field names because we know these are named fields.
-            fields.named.iter().any(|field| field.ident.unwrap() == "bees")
+            fields
+                .named
+                .iter()
+                .filter_map(|field| field.ident.clone())
+                .any(|field| field == "bees")
         }
         // Ignore unit structs or anonymous fields.
-        _ => {
-            false
-        },
+        _ => false,
     }
 }
 
@@ -75,19 +72,22 @@ fn light_it_up(struct_: &syn::ItemStruct) {
         let bees_msg = ["", bees.as_str(), msg, bees.as_str(), ""].join("\n");
         // Find the field named "bees".
         for field in &fields.named {
-            let ident = field.ident.unwrap();
+            let ident = field.ident.clone().unwrap();
             if ident == "bees" {
                 // Deliver the error message.
-                ident.span().unstable()
-                    .error(bees_msg.clone())
-                    .emit();
+                ident.span().unstable().error(bees_msg.clone()).emit();
             } else if cfg!(feature = "go-nuts") {
                 // Show a random error message referencing the name of the field.
-                ident.span().unstable()
-                    .error(random_error_message(ident.as_ref()))
+                ident
+                    .span()
+                    .unstable()
+                    .error(random_error_message(&ident.to_string()))
                     .emit();
                 // Show a random error message referencing the type of the field.
-                field.ty.span().unstable()
+                field
+                    .ty
+                    .span()
+                    .unstable()
                     .error(random_error_message(""))
                     .emit();
             }
@@ -99,24 +99,21 @@ fn light_it_up(struct_: &syn::ItemStruct) {
 fn random_error_message(name: &str) -> String {
     // Generate some quotes from The Wicker Man.
     let truck_msg = String::from("🚚 SURPRISE 🚚");
-    let city_msg: String;
-    // If the error message is being generated for a type, rather than the name
-    // of a field, there will be no name available. In that case I'll just omit
-    // the name rather than digging through the syntax tree to find something
-    // that does have a name.
-    if name == "" {
-        city_msg = String::from("Is that some kind of city talk?");
+    let city_msg = if name == "" {
+        String::from("Is that some kind of city talk?")
     } else {
-        city_msg = format!("{}? Is that some kind of city talk?", name);
-    }
+        format!("{}? Is that some kind of city talk?", name)
+    };
     let bear_msg = [
         "🐻".repeat(7).as_str(),
         "🤜 RIGHT HOOK 🤛",
         "🐻".repeat(7).as_str(),
-    ].join("\n");
+    ]
+    .join("\n");
     let burned_msg = String::from("🔥 how'd it get burned? HOW'D IT GET BURNED?! 🔥");
     let phallic_msg = String::from("🍆 PHALLIC SYMBOL 🍆 PHALLIC SYMBOL 🍆");
-    let shark_msg = String::from("🦈🦈🦈 Yeah, it was totally a shark in that bag 🦈🦈🦈");
+    let shark_msg =
+        String::from("🦈🦈🦈 Yeah, it was totally a shark in that bag 🦈🦈🦈");
     let dr_bees_msg = String::from("🐝 This field is woefully underpopulated by BEES 🐝");
     let bike_msg = String::from("🚴‍♀️ STEP AWAY FROM THE BIKE 🚴‍♀️");
     let guilty_msg = String::from("You'll all be guilty! And you're doing it for nothing!");
@@ -133,5 +130,9 @@ fn random_error_message(name: &str) -> String {
         guilty_msg,
     ];
     // Use the `rand` crate to choose a random message to return.
-    rand::thread_rng().choose(&messages).unwrap().to_owned()
+    messages
+        .iter()
+        .choose(&mut rand::thread_rng())
+        .unwrap()
+        .to_owned()
 }
